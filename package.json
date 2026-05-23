@@ -1,0 +1,31 @@
+{
+  "name": "obsidian-dayflow",
+  "version": "0.1.0",
+  "description": "Export Dayflow timeline, journal, standup, goals, observations, and ratings into an Obsidian vault — with inline SVG treemaps, heatmaps, and Sankey charts. Local-first, read-only, zero network.",
+  "type": "module",
+  "bin": {
+    "obsidian-dayflow": "src/index.js"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node src/index.js --days 3 --output ./test-vault",
+    "smoke": "node test/smoke.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.10.0",
+    "commander": "^12.1.0",
+    "date-fns": "^4.2.1",
+    "js-yaml": "^4.1.1"
+  },
+  "license": "MIT",
+  "keywords": [
+    "dayflow",
+    "obsidian",
+    "markdown",
+    "time-tracking",
+    "local-first"
+  ]
+}
