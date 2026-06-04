@@ -1,15 +1,18 @@
 /**
- * Per-day Obsidian note. Pulls every relevant table, generates frontmatter
- * with tags + category wikilinks, then a structured body covering:
+ * Per-day Obsidian note. Layout favors readability:
  *
- *   1. Daily summary + goal progress
- *   2. Standup (highlights / tasks / blockers)
- *   3. Journal (intentions / goals / notes)
- *   4. Timeline cards (each with app, duration, ratings if any)
- *   5. Distractions log
- *   6. App usage table
- *   7. Reflections + AI summary
- *   8. Per-day treemap (inline SVG)
+ *   1. Header callout — at-a-glance hours, categories, goal progress
+ *   2. Standup (only if non-empty)
+ *   3. Intentions (only if recorded)
+ *   4. Timeline (the main content)
+ *   5. Reflection (only if recorded)
+ *   6. Distractions (only if any)
+ *   7. Top apps (capped at 8)
+ *   8. Goal category assignments (if any)
+ *   9. Week link footer
+ *
+ * Daily notes deliberately have NO charts — visualizations only make sense
+ * at the weekly aggregate where there's enough data to see patterns.
  */
 import path from 'path';
 import { fetchTimelineCards } from '../data/timeline.js';
@@ -20,14 +23,12 @@ import { fetchRatings } from '../data/ratings.js';
 import { categoryBreakdown } from '../aggregators/category.js';
 import { appBreakdown } from '../aggregators/apps.js';
 import { goalProgress } from '../aggregators/goals.js';
-import { renderTreemap } from '../viz/treemap.js';
 import { frontmatter } from '../formatters/frontmatter.js';
 import { wikilink, weekLink } from '../formatters/wikilinks.js';
 import { writeIfChanged, readCreatedAt } from '../util/io.js';
 import { fmtDuration, fmtHours, slugify } from '../util/time.js';
 import { tableCell } from '../util/escape.js';
 import { isoWeekKey, isDayComplete } from '../boundary.js';
-import { buildColorMap } from '../util/colors.js';
 import { format } from 'date-fns';
 
 export async function exportDailyNote(db, dayString, cfg) {
@@ -57,15 +58,6 @@ export async function exportDailyNote(db, dayString, cfg) {
   const apps = appBreakdown(cards);
   const goalProg = goalProgress(cards, goals);
 
-  // Color overrides from day_goal_categories (focus categories get app-defined colors).
-  const colorOverrides = {};
-  if (goals) {
-    for (const c of [...goals.focusCategories, ...goals.distractionCategories]) {
-      colorOverrides[c.category_name] = c.category_color_hex;
-    }
-  }
-  const colorMap = buildColorMap(breakdown.categories.map((c) => c.category), colorOverrides);
-
   const fm = frontmatter({
     dayflow_day: dayString,
     week: isoWeekKey(dayString),
@@ -89,16 +81,14 @@ export async function exportDailyNote(db, dayString, cfg) {
   });
 
   const sections = [
-    headerSection(dayString),
-    summarySection(breakdown, goalProg),
+    headerSection(dayString, breakdown, goalProg),
     standupSection(standup),
     journalIntentionsSection(journal),
-    goalSection(goalProg, goals, cfg),
     timelineSection(cards, ratings, cfg),
+    journalReflectionsSection(journal),
     distractionsSection(cards),
     appsSection(apps),
-    journalReflectionsSection(journal),
-    treemapSection(breakdown, colorMap),
+    goalCategoriesSection(goals, cfg),
     relatedSection(dayString),
   ].filter(Boolean);
 
@@ -107,31 +97,43 @@ export async function exportDailyNote(db, dayString, cfg) {
   return { ...res, status: res.written ? (res.created ? 'created' : 'updated') : 'unchanged' };
 }
 
-function headerSection(dayString) {
+function headerSection(dayString, breakdown, goalProg) {
   const date = new Date(`${dayString}T12:00:00`);
-  return `# Dayflow · ${format(date, 'EEEE, MMMM d, yyyy')}\n\n*Week:* ${weekLink(isoWeekKey(dayString))}\n`;
-}
-
-function summarySection(breakdown, goalProg) {
   const { totalMinutes, categories } = breakdown;
-  if (totalMinutes === 0) return '## Summary\n\n*No tracked time.*\n';
+  const lines = [
+    `# ${format(date, 'EEEE, MMMM d, yyyy')}`,
+    '',
+    `> [!info] Day at a glance`,
+  ];
+
+  if (totalMinutes === 0) {
+    lines.push('> *No tracked activity for this day.*');
+    lines.push('');
+    return lines.join('\n');
+  }
+
+  lines.push(`> **${fmtHours(totalMinutes)}h** tracked · ${categories.reduce((s, c) => s + c.cards, 0)} cards · ${categories.length} categories`);
+
   const pcts = categories
-    .slice(0, 6)
-    .map((c) => `**${c.category}** ${Math.round(c.pct * 100)}%`)
-    .join(' · ');
-  let goalLine = '';
+    .slice(0, 5)
+    .map((c) => `\`${c.category} ${Math.round(c.pct * 100)}%\``)
+    .join(' ');
+  if (pcts) lines.push(`> ${pcts}`);
+
   if (goalProg && !goalProg.isSkipped) {
     if (goalProg.focusTargetMinutes) {
       const pct = Math.round((goalProg.focusPct ?? 0) * 100);
-      goalLine += `\n- 🎯 Focus: ${fmtDuration(goalProg.focusActualMinutes)} / ${fmtDuration(goalProg.focusTargetMinutes)} (${pct}%)`;
+      const hit = pct >= 100 ? ' ✅' : '';
+      lines.push(`> 🎯 Focus: **${fmtDuration(goalProg.focusActualMinutes)}** / ${fmtDuration(goalProg.focusTargetMinutes)} (${pct}%)${hit}`);
     }
     if (goalProg.distractionLimitMinutes) {
       const pct = Math.round((goalProg.distractionPct ?? 0) * 100);
       const over = goalProg.distractionActualMinutes > goalProg.distractionLimitMinutes ? ' ⚠️' : '';
-      goalLine += `\n- 🚫 Distractions: ${fmtDuration(goalProg.distractionActualMinutes)} / ${fmtDuration(goalProg.distractionLimitMinutes)} limit (${pct}%)${over}`;
+      lines.push(`> 🚫 Distractions: **${fmtDuration(goalProg.distractionActualMinutes)}** / ${fmtDuration(goalProg.distractionLimitMinutes)} limit (${pct}%)${over}`);
     }
   }
-  return `## Summary\n\n- ⏱️ ${fmtHours(totalMinutes)}h tracked across ${breakdown.categories.length} categories, ${breakdown.categories.reduce((s, c) => s + c.cards, 0)} cards\n- 📊 ${pcts}${goalLine}\n`;
+  lines.push('');
+  return lines.join('\n');
 }
 
 function standupSection(standup) {
@@ -168,12 +170,17 @@ function journalIntentionsSection(journal) {
   return `## Journal\n\n${parts.join('\n\n')}\n`;
 }
 
-function goalSection(goalProg, goals, cfg) {
-  if (!goals) return '';
-  if (goals.isSkipped) return `## Day goals\n\n*Skipped for this day.*\n`;
+function goalCategoriesSection(goals, cfg) {
+  // Only emit this if goals have category assignments — the progress line is in the header.
+  if (!goals || goals.isSkipped) return '';
+  if (goals.focusCategories.length === 0 && goals.distractionCategories.length === 0) return '';
   const focus = goals.focusCategories.map((c) => wikilink(c.category_name, { enabled: cfg.categoryWikilinks })).join(', ');
   const distr = goals.distractionCategories.map((c) => wikilink(c.category_name, { enabled: cfg.categoryWikilinks })).join(', ');
-  return `## Day goals\n\n- Focus categories: ${focus || '_none_'}\n- Distraction categories: ${distr || '_none_'}\n`;
+  const lines = ['## Goal categories', ''];
+  if (focus) lines.push(`- 🎯 Focus: ${focus}`);
+  if (distr) lines.push(`- 🚫 Distraction: ${distr}`);
+  lines.push('');
+  return lines.join('\n');
 }
 
 function timelineSection(cards, ratings, cfg) {
@@ -227,11 +234,13 @@ function distractionsSection(cards) {
 
 function appsSection(apps) {
   if (apps.length === 0) return '';
-  const rows = apps
-    .slice(0, 20)
+  const top = apps.slice(0, 8);
+  const rest = apps.length - top.length;
+  const rows = top
     .map((a) => `| ${tableCell(a.app)} | ${a.sessions} | ${a.minutes} |`)
     .join('\n');
-  return `## App usage\n\n| App | Sessions | Minutes |\n| --- | --- | --- |\n${rows}\n`;
+  const trailer = rest > 0 ? `\n*… and ${rest} more apps*\n` : '';
+  return `## Top apps\n\n| App | Sessions | Minutes |\n| --- | --- | --- |\n${rows}\n${trailer}`;
 }
 
 function journalReflectionsSection(journal) {
@@ -243,17 +252,6 @@ function journalReflectionsSection(journal) {
   return `## Reflection\n\n${parts.join('\n\n')}\n`;
 }
 
-function treemapSection(breakdown, colorMap) {
-  if (breakdown.categories.length === 0) return '';
-  const items = breakdown.categories.map((c) => ({
-    name: c.category,
-    value: c.minutes,
-    color: colorMap[c.category],
-  }));
-  const svg = renderTreemap(items, { title: 'Time by category' });
-  return `## Treemap\n\n<div class="dayflow-treemap">\n${svg}\n</div>\n`;
-}
-
 function relatedSection(dayString) {
-  return `## Related\n\n- Week note: ${weekLink(isoWeekKey(dayString))}\n`;
+  return `---\n\n*Week:* ${weekLink(isoWeekKey(dayString))}\n`;
 }

@@ -4,15 +4,20 @@
  * Not a full multi-stage Sankey — Dayflow's flow is pairwise transitions
  * so we render it as a two-column flow diagram which is sufficient and
  * compact for an Obsidian preview.
+ *
+ * Labels are anchored INSIDE the column gap so they never clip the
+ * viewBox edge, and long names are truncated.
  */
 import { xml } from '../util/escape.js';
 import { colorFor } from '../util/colors.js';
 
-const W = 720;
+const W = 760;
 const H = 460;
 const PAD = 24;
-const NODE_W = 14;
+const LABEL_W = 110;      // reserved gutter for left/right labels
+const NODE_W = 12;
 const MAX_NODES = 10;
+const MAX_LABEL = 14;     // chars
 
 export function renderSankey(transitions, opts = {}) {
   const { title = 'App transitions' } = opts;
@@ -20,7 +25,6 @@ export function renderSankey(transitions, opts = {}) {
     return empty(title, 'No transitions recorded');
   }
 
-  // Aggregate per-node totals to rank and trim.
   const sources = new Map();
   const targets = new Map();
   for (const t of transitions) {
@@ -34,8 +38,8 @@ export function renderSankey(transitions, opts = {}) {
   );
   if (filtered.length === 0) return empty(title, 'No transitions in top apps');
 
-  const leftX = PAD;
-  const rightX = W - PAD - NODE_W;
+  const leftX = PAD + LABEL_W;
+  const rightX = W - PAD - LABEL_W - NODE_W;
   const totalLeft = topSources.reduce((s, k) => s + sources.get(k), 0);
   const totalRight = topTargets.reduce((s, k) => s + targets.get(k), 0);
 
@@ -56,10 +60,21 @@ export function renderSankey(transitions, opts = {}) {
     })
     .join('');
 
-  const leftNodes = renderNodes(topSources, sources, leftYs, leftX, 'end', -8);
-  const rightNodes = renderNodes(topTargets, targets, rightYs, rightX, 'start', NODE_W + 8);
+  // Left labels: end-anchored to the LEFT of the node, inside our reserved gutter.
+  const leftNodes = topSources.map((k) => {
+    const { y, h } = leftYs.get(k);
+    const color = colorFor(k);
+    return `<g><rect x="${leftX}" y="${y}" width="${NODE_W}" height="${h}" rx="2" fill="${color}"></rect><text x="${leftX - 6}" y="${y + h / 2 + 4}" text-anchor="end" fill="currentColor" font-family="-apple-system, system-ui, sans-serif" font-size="11">${xml(truncate(k, MAX_LABEL))} (${sources.get(k)})</text></g>`;
+  }).join('');
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="App transitions Sankey"><text x="${PAD}" y="18" font-family="-apple-system, system-ui, sans-serif" font-size="14" font-weight="600" fill="currentColor">${xml(title)}</text>${links}${leftNodes}${rightNodes}</svg>`;
+  // Right labels: start-anchored to the RIGHT of the node, inside our reserved gutter.
+  const rightNodes = topTargets.map((k) => {
+    const { y, h } = rightYs.get(k);
+    const color = colorFor(k);
+    return `<g><rect x="${rightX}" y="${y}" width="${NODE_W}" height="${h}" rx="2" fill="${color}"></rect><text x="${rightX + NODE_W + 6}" y="${y + h / 2 + 4}" text-anchor="start" fill="currentColor" font-family="-apple-system, system-ui, sans-serif" font-size="11">${xml(truncate(k, MAX_LABEL))} (${targets.get(k)})</text></g>`;
+  }).join('');
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="App transitions Sankey">${links}${leftNodes}${rightNodes}</svg>`;
 }
 
 function topKeys(map, n) {
@@ -71,7 +86,7 @@ function layoutColumn(keys, totals, total) {
   const gap = 4;
   const usable = avail - gap * (keys.length - 1);
   const positions = new Map();
-  let y = PAD + 8;
+  let y = PAD;
   for (const k of keys) {
     const h = Math.max(8, (totals.get(k) / total) * usable);
     positions.set(k, { y, h });
@@ -80,17 +95,11 @@ function layoutColumn(keys, totals, total) {
   return positions;
 }
 
-function renderNodes(keys, totals, yMap, x, anchor, labelOffset) {
-  return keys
-    .map((k) => {
-      const { y, h } = yMap.get(k);
-      const color = colorFor(k);
-      const labelX = anchor === 'end' ? x + labelOffset : x + labelOffset;
-      return `<g><rect x="${x}" y="${y}" width="${NODE_W}" height="${h}" rx="2" fill="${color}"></rect><text x="${labelX}" y="${y + h / 2 + 4}" text-anchor="${anchor}" fill="currentColor" font-family="-apple-system, system-ui, sans-serif" font-size="11">${xml(k)} (${totals.get(k)})</text></g>`;
-    })
-    .join('');
+function truncate(s, max) {
+  if (s.length <= max) return s;
+  return s.slice(0, Math.max(1, max - 1)) + '…';
 }
 
-function empty(title, msg) {
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="100%"><text x="${PAD}" y="18" font-family="-apple-system, system-ui, sans-serif" font-size="14" font-weight="600" fill="currentColor">${xml(title)}</text><text x="${W / 2}" y="${H / 2}" text-anchor="middle" fill="currentColor" opacity="0.5" font-family="-apple-system, system-ui, sans-serif" font-size="14">${xml(msg)}</text></svg>`;
+function empty(_title, msg) {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} 60" width="100%"><text x="${W / 2}" y="34" text-anchor="middle" fill="currentColor" opacity="0.5" font-family="-apple-system, system-ui, sans-serif" font-size="13">${xml(msg)}</text></svg>`;
 }

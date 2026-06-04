@@ -16,18 +16,16 @@ const H = 420;
 const PAD = 2;
 
 export function renderTreemap(items, opts = {}) {
-  const { title = 'Time by category', unit = 'min' } = opts;
+  const { unit = 'min' } = opts;
   const total = items.reduce((s, i) => s + Math.max(0, i.value), 0);
   if (total === 0) {
-    return emptyChart(title, 'No data for this period');
+    return emptyChart('No data for this period');
   }
   const sorted = [...items].filter((i) => i.value > 0).sort((a, b) => b.value - a.value);
-  const rects = squarify(sorted, total, { x: 0, y: 28, w: W, h: H - 28 });
+  const rects = squarify(sorted, total, { x: 0, y: 0, w: W, h: H });
 
   const tiles = rects.map((r) => tile(r, total, unit)).join('');
-  return wrap(
-    `<text x="${PAD * 4}" y="18" font-family="-apple-system, system-ui, sans-serif" font-size="14" font-weight="600" fill="currentColor">${xml(title)}</text>${tiles}`
-  );
+  return wrap(tiles);
 }
 
 function wrap(inner) {
@@ -55,9 +53,9 @@ function truncate(s, max) {
   return s.slice(0, Math.max(1, max - 1)) + '…';
 }
 
-function emptyChart(title, msg) {
+function emptyChart(msg) {
   return wrap(
-    `<text x="${PAD * 4}" y="18" font-family="-apple-system, system-ui, sans-serif" font-size="14" font-weight="600" fill="currentColor">${xml(title)}</text><text x="${W / 2}" y="${H / 2}" text-anchor="middle" fill="currentColor" opacity="0.5" font-family="-apple-system, system-ui, sans-serif" font-size="14">${xml(msg)}</text>`
+    `<text x="${W / 2}" y="${H / 2}" text-anchor="middle" fill="currentColor" opacity="0.5" font-family="-apple-system, system-ui, sans-serif" font-size="14">${xml(msg)}</text>`
   );
 }
 
