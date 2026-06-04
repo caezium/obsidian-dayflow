@@ -26,7 +26,7 @@ export function renderTreemap(items, opts = {}) {
 
   const tiles = rects.map((r) => tile(r, total, unit)).join('');
   return wrap(
-    `<text x="${PAD * 4}" y="18" font-family="-apple-system, system-ui, sans-serif" font-size="14" font-weight="600" fill="#1f2937">${xml(title)}</text>${tiles}`
+    `<text x="${PAD * 4}" y="18" font-family="-apple-system, system-ui, sans-serif" font-size="14" font-weight="600" fill="currentColor">${xml(title)}</text>${tiles}`
   );
 }
 
@@ -57,7 +57,7 @@ function truncate(s, max) {
 
 function emptyChart(title, msg) {
   return wrap(
-    `<text x="${PAD * 4}" y="18" font-family="-apple-system, system-ui, sans-serif" font-size="14" font-weight="600" fill="#1f2937">${xml(title)}</text><text x="${W / 2}" y="${H / 2}" text-anchor="middle" fill="#9ca3af" font-family="-apple-system, system-ui, sans-serif" font-size="14">${xml(msg)}</text>`
+    `<text x="${PAD * 4}" y="18" font-family="-apple-system, system-ui, sans-serif" font-size="14" font-weight="600" fill="currentColor">${xml(title)}</text><text x="${W / 2}" y="${H / 2}" text-anchor="middle" fill="currentColor" opacity="0.5" font-family="-apple-system, system-ui, sans-serif" font-size="14">${xml(msg)}</text>`
   );
 }
 

@@ -59,7 +59,7 @@ export function renderSankey(transitions, opts = {}) {
   const leftNodes = renderNodes(topSources, sources, leftYs, leftX, 'end', -8);
   const rightNodes = renderNodes(topTargets, targets, rightYs, rightX, 'start', NODE_W + 8);
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="App transitions Sankey"><text x="${PAD}" y="18" font-family="-apple-system, system-ui, sans-serif" font-size="14" font-weight="600" fill="#1f2937">${xml(title)}</text>${links}${leftNodes}${rightNodes}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="App transitions Sankey"><text x="${PAD}" y="18" font-family="-apple-system, system-ui, sans-serif" font-size="14" font-weight="600" fill="currentColor">${xml(title)}</text>${links}${leftNodes}${rightNodes}</svg>`;
 }
 
 function topKeys(map, n) {
@@ -86,11 +86,11 @@ function renderNodes(keys, totals, yMap, x, anchor, labelOffset) {
       const { y, h } = yMap.get(k);
       const color = colorFor(k);
       const labelX = anchor === 'end' ? x + labelOffset : x + labelOffset;
-      return `<g><rect x="${x}" y="${y}" width="${NODE_W}" height="${h}" rx="2" fill="${color}"></rect><text x="${labelX}" y="${y + h / 2 + 4}" text-anchor="${anchor}" fill="#1f2937" font-family="-apple-system, system-ui, sans-serif" font-size="11">${xml(k)} (${totals.get(k)})</text></g>`;
+      return `<g><rect x="${x}" y="${y}" width="${NODE_W}" height="${h}" rx="2" fill="${color}"></rect><text x="${labelX}" y="${y + h / 2 + 4}" text-anchor="${anchor}" fill="currentColor" font-family="-apple-system, system-ui, sans-serif" font-size="11">${xml(k)} (${totals.get(k)})</text></g>`;
     })
     .join('');
 }
 
 function empty(title, msg) {
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="100%"><text x="${PAD}" y="18" font-family="-apple-system, system-ui, sans-serif" font-size="14" font-weight="600" fill="#1f2937">${xml(title)}</text><text x="${W / 2}" y="${H / 2}" text-anchor="middle" fill="#9ca3af" font-family="-apple-system, system-ui, sans-serif" font-size="14">${xml(msg)}</text></svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="100%"><text x="${PAD}" y="18" font-family="-apple-system, system-ui, sans-serif" font-size="14" font-weight="600" fill="currentColor">${xml(title)}</text><text x="${W / 2}" y="${H / 2}" text-anchor="middle" fill="currentColor" opacity="0.5" font-family="-apple-system, system-ui, sans-serif" font-size="14">${xml(msg)}</text></svg>`;
 }

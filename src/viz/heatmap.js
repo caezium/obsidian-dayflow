@@ -21,11 +21,11 @@ export function renderHeatmap(grid, dayLabels, opts = {}) {
   const headers = Array.from({ length: cols }, (_, hour) => {
     if (hour % 3 !== 0 && hour !== 23) return '';
     const x = PAD_LEFT + hour * CELL + CELL / 2;
-    return `<text x="${x}" y="${PAD_TOP - 8}" text-anchor="middle" fill="#6b7280" font-family="-apple-system, system-ui, sans-serif" font-size="10">${hour}</text>`;
+    return `<text x="${x}" y="${PAD_TOP - 8}" text-anchor="middle" fill="currentColor" opacity="0.6" font-family="-apple-system, system-ui, sans-serif" font-size="10">${hour}</text>`;
   }).join('');
 
   const rowSvgs = grid.map((row, i) => {
-    const yLabel = `<text x="${PAD_LEFT - 8}" y="${PAD_TOP + i * CELL + CELL * 0.7}" text-anchor="end" fill="#374151" font-family="-apple-system, system-ui, sans-serif" font-size="11">${xml(dayLabels[i])}</text>`;
+    const yLabel = `<text x="${PAD_LEFT - 8}" y="${PAD_TOP + i * CELL + CELL * 0.7}" text-anchor="end" fill="currentColor" font-family="-apple-system, system-ui, sans-serif" font-size="11">${xml(dayLabels[i])}</text>`;
     const cells = row
       .map((v, hour) => {
         const intensity = v / max;
@@ -38,7 +38,7 @@ export function renderHeatmap(grid, dayLabels, opts = {}) {
     return yLabel + cells;
   }).join('');
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="100%" role="img" aria-label="Focus heatmap"><text x="8" y="18" font-family="-apple-system, system-ui, sans-serif" font-size="14" font-weight="600" fill="#1f2937">${xml(title)}</text>${headers}${rowSvgs}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="100%" role="img" aria-label="Focus heatmap"><text x="8" y="18" font-family="-apple-system, system-ui, sans-serif" font-size="14" font-weight="600" fill="currentColor">${xml(title)}</text>${headers}${rowSvgs}</svg>`;
 }
 
 function lerpColor(a, b, t) {
